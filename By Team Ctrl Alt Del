@@ -1,0 +1,260 @@
+# Conway's Game of Life Refactored by Team Ctrl+Alt+Del
+import random
+import os
+import sys
+from typing import List, Optional, Tuple
+from time import sleep
+
+
+SIZE = 17
+
+
+def clear_screen():
+    if os.name == 'nt':
+        _ = os.system('cls')
+    else:
+        _ = os.system('clear')
+
+
+def make_grid(grid):
+    for row in grid:
+        for val in row:
+            print(val, end=" ")
+        print()
+    print()
+
+
+
+def neighbor_cell_count(grid: List[List[int]], row: int, col: int) -> int:
+   
+    alive = 0
+    
+    rows_count = len(grid)
+    cols_count = len(grid[0])
+
+   
+    r = (row - 1) % rows_count
+    c = (col - 1) % cols_count
+    if grid[r][c]:
+        alive += 1
+
+ 
+    r = (row - 1) % rows_count
+    c = col
+    if grid[r][c]:
+        alive += 1
+
+    
+    r = (row - 1) % rows_count
+    c = (col + 1) % cols_count
+    if grid[r][c]:
+        alive += 1
+
+    
+    r = row
+    c = (col - 1) % cols_count
+    if grid[r][c]:
+        alive += 1
+
+   
+    r = row
+    c = (col + 1) % cols_count
+    if grid[r][c]:
+        alive += 1
+
+  
+    r = (row + 1) % rows_count
+    c = (col - 1) % cols_count
+    if grid[r][c]:
+        alive += 1
+
+  
+    r = (row + 1) % rows_count
+    c = col
+    if grid[r][c]:
+        alive += 1
+
+    
+    r = (row + 1) % rows_count
+    c = (col + 1) % cols_count
+    if grid[r][c]:
+        alive += 1
+
+    return alive
+
+
+def check_rules(grid: List[List[int]], row: int, col: int) -> bool:
+    live_neighbors = neighbor_cell_count(grid, row, col)
+    if live_neighbors == 3:
+        return True
+    elif grid[row][col] and live_neighbors == 2:
+        return True
+    else:
+        return False
+
+
+def Generation_count() -> int:
+    while True:
+        try:
+            generations = int(input("How many generations would you like to run? "))
+            if generations <= 0:
+                print("Please enter a positive number.")
+                continue
+            return generations
+        except ValueError:
+            print("Invalid. Please enter a valid number.")
+
+
+def try_again() -> bool:
+    while True:
+        response = input("Restart? (yay/nay): ").lower().strip()
+        if response in ['yay', 'aight', 'ong twin']:
+            return True
+        elif response in ['nay', 'nah', 'no way']:
+            return False
+        else:
+            print("jus use the choices twin omg ")
+
+
+def load_population_file(filename: str) -> Tuple[List[List[int]], Optional[int]]:
+   
+    with open(filename, 'r', encoding='utf-8') as f:
+        raw_lines = [line.rstrip('\n') for line in f]
+
+   
+    pattern_lines = []
+    i = 0
+    while i < len(raw_lines):
+        line = raw_lines[i].rstrip()
+        if line == "":
+            i += 1
+            break
+        
+        if line:
+            pattern_lines.append(line)
+        i += 1
+
+    
+    generations = None
+    while i < len(raw_lines):
+        line = raw_lines[i].strip()
+        if line == "":
+            i += 1
+            continue
+        try:
+            generations = int(line)
+            break
+        except ValueError:
+            
+            i += 1
+            continue
+
+    if not pattern_lines:
+        raise ValueError("No population pattern found in file.")
+
+    
+    width = len(pattern_lines[0])
+    for rl in pattern_lines:
+        if len(rl) != width:
+            raise ValueError("Population in file is not rectangular.")
+
+
+    grid = []
+    for rl in pattern_lines:
+        row = []
+        for ch in rl:
+            if ch == '*':
+                row.append(1)
+            elif ch == '.':
+                row.append(0)
+            else:
+               
+                raise ValueError(f"Invalid character in population pattern: '{ch}'")
+        grid.append(row)
+
+    return grid, generations
+
+
+def run_sim(initial_grid: Optional[List[List[int]]] = None, initial_generations: Optional[int] = None):
+    global SIZE
+
+
+    if initial_grid is not None:
+        grid = [row.copy() for row in initial_grid]
+        SIZE = len(grid)
+    else:
+        
+        grid = [[random.choice([0, 1]) for _ in range(SIZE)] for _ in range(SIZE)]
+
+
+    if initial_generations is not None:
+        max_generations = initial_generations
+    else:
+        max_generations = Generation_count()
+
+    
+    gen_count = 1
+    while gen_count <= max_generations:
+        clear_screen()
+        print(f"Generation {gen_count}:")
+        make_grid(grid)
+        sleep(.25)
+
+    
+        next_grid = [row.copy() for row in grid]
+
+        
+        for row in range(len(grid)):
+            for col in range(len(grid[0])):
+                alive_next_time = check_rules(grid, row, col)
+                if alive_next_time:
+                    next_grid[row][col] = 1
+                else:
+                    next_grid[row][col] = 0
+
+        
+        grid = [row.copy() for row in next_grid]
+        gen_count += 1
+
+    print(f"\nSimulation completed! Ran {max_generations} generations.")
+
+
+def main():
+    print("Welcome to Conway's Game of Life!")
+    print("-------------------------------------")
+
+    
+    initial_grid = None
+    initial_generations = None
+
+    if len(sys.argv) > 1:
+        filename = sys.argv[1]
+        try:
+            g, gens = load_population_file(filename)
+            initial_grid = g
+            initial_generations = gens
+            print(f"Loaded population from '{filename}'. Grid size: {len(g)}x{len(g[0])}")
+            if gens is not None:
+                print(f"Generations requested in file: {gens}")
+            else:
+                print("No generation count found in file; will ask you.")
+        except Exception as e:
+            print(f"Error loading '{filename}': {e}")
+            print("Falling back to interactive/random behavior.")
+            initial_grid = None
+            initial_generations = None
+
+    while True:
+        run_sim(initial_grid=initial_grid, initial_generations=initial_generations)
+
+        
+        initial_grid = None
+        initial_generations = None
+
+        if not try_again():
+            print("Thanks for playing! Auf Wiedersehen!")
+            break
+
+
+if __name__ == "__main__":
+    main()
